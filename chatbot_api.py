@@ -26,7 +26,7 @@ def get_standard():
 
 	return model, tokenizer
 
-def model_infer(prompt, model, tokenizer):
+def model_infer(prompt, model, tokenizer, MAX_TOKENS=50):
 	# Tokenize the input and create attention mask
 	inputs = tokenizer(prompt, padding="max_length", 
 					   truncation=True, 
@@ -52,5 +52,34 @@ def model_infer(prompt, model, tokenizer):
 	
 	# Decode the generated output
 	generated_text = tokenizer.decode(generated_output[0], skip_special_tokens=True)
+	new_generated_text = generated_text[len(prompt):].strip()
 	
-	return generated_text
+	return new_generated_text
+
+
+class ChatBot():
+	def __init__(self, fine_tuned=False, max_tokens=50):
+		if fine_tuned:
+			self.model, self.tokenizer = get_fine_tuned()
+		else:
+			self.model, self.tokenizer = get_standard()
+
+		self.base_prompt = "Continue the following prompt as a female character from a romance movie. "
+		self.context = [self.base_prompt]
+		self.max_tokens = max_tokens
+
+	def reset_context(self):
+		self.context = [self.base_prompt]
+
+	def chat(self, prompt):
+		self.context.append(prompt)
+
+		# Join the prompts into a single string
+		super_prompt = " ".join(self.context)
+		new_context = model_infer(self.context, self.model, self.tokenizer, MAX_TOKENS=self.max_tokens)
+
+		# The model's prior response should be placed in the context
+		self.context.append(new_context)
+
+		return new_context
+
