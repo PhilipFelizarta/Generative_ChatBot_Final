@@ -58,7 +58,7 @@ def model_infer(prompt, model, tokenizer, MAX_TOKENS=50):
 
 
 class ChatBot():
-	def __init__(self, fine_tuned=False):
+	def __init__(self, fine_tuned=False, max_tokens=50):
 		if fine_tuned:
 			self.model, self.tokenizer = get_fine_tuned()
 		else:
@@ -66,6 +66,7 @@ class ChatBot():
 
 		self.base_prompt = "Continue the following prompt as a female character from a romance movie. "
 		self.context = [self.base_prompt]
+		self.max_tokens = max_tokens
 
 	def reset_context(self):
 		self.context = [self.base_prompt]
@@ -75,7 +76,7 @@ class ChatBot():
 
 		# Join the prompts into a single string
 		super_prompt = " ".join(self.context)
-		new_context = model_infer(self.context, self.model, self.tokenizer)
+		new_context = model_infer(self.context, self.model, self.tokenizer, MAX_TOKENS=self.max_tokens)
 
 		# The model's prior response should be placed in the context
 		self.context.append(new_context)
