@@ -25,10 +25,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: url('filmstrip.jpg');  /* Reference the image in the same folder */
+            background-image: url('filmstrip.jpg');
             background-size: cover;
-            animation: moveFrame 15s linear infinite;  /* Infinite animation */
-            z-index: -1;  /* Behind the content */
+            animation: moveFrame 15s linear infinite;
+            z-index: -1;
         }
 
         @keyframes moveFrame {
@@ -36,7 +36,7 @@
                 background-position: 0 0;
             }
             100% {
-                background-position: -1000px 0;  /* Adjust this for animation speed */
+                background-position: -1000px 0;
             }
         }
 
@@ -52,37 +52,33 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
-            max-height: calc(100vh - 150px); /* Leave space for the footer */
-            position: absolute;  /* Absolute positioning */
-            bottom: 260px;  /* Position above the footer */
+            max-height: calc(100vh - 150px);
+            position: absolute;
+            bottom: 260px;
         }
 
-        /* Add title */
         h1 {
             margin: 10px 0;
             color: #333;
         }
 
-        /* Description text */
         .description {
             font-size: 1em;
             color: #555;
             margin-bottom: 20px;
         }
 
-        /* Chat history container */
         .history {
             background: rgba(255, 255, 255, 0.6);
             padding: 10px;
             border-radius: 5px;
-            flex-grow: 1; /* Allow to expand */
-            overflow-y: auto;   /* Allow scrolling when content exceeds height */
-            margin-bottom: 10px; /* Space between history and input */
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
             display: flex;
             flex-direction: column;
         }
 
-        /* Chat bubbles */
         .message {
             padding: 10px 15px;
             border-radius: 20px;
@@ -92,14 +88,12 @@
             word-wrap: break-word;
         }
 
-        /* User message bubbles (right side) */
         .user-message {
             background-color: #007bff;
             color: white;
             align-self: flex-end;
         }
 
-        /* Bot response bubbles (left side) */
         .bot-message {
             background-color: #f1f1f1;
             color: black;
@@ -113,24 +107,23 @@
             text-align: center;
         }
 
-        /* Input section: input field and button side by side */
         .input-section {
             margin-top: auto;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-direction: row;
         }
 
-        /* Input field */
         input {
             padding: 10px;
             width: 75%;
             border: 2px solid #007bff;
             border-radius: 5px;
             font-size: 1em;
+            margin-top: 10px;
         }
 
-        /* Submit button next to input */
         .arrow-button {
             background-color: #007bff;
             border: none;
@@ -143,13 +136,38 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-top: 10px;
         }
 
         .arrow-button:hover {
             background-color: #0056b3;
         }
 
-        /* Footer */
+        .model-selection, .reset-section {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .model-selection label {
+            margin: 0 10px;
+            font-size: 0.9em;
+        }
+
+        .reset-button {
+            background-color: #dc3545;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+            font-size: 1em;
+        }
+
+        .reset-button:hover {
+            background-color: #c82333;
+        }
+
         .footer {
             text-align: center;
             background-color: #f1f1f1;
@@ -183,9 +201,10 @@
             const sendButton = document.querySelector('.arrow-button');
             const text = inputField.value;
             const processingDiv = document.getElementById('processing');
+            const useFineTuned = document.querySelector('input[name="model"]:checked').value === "fine_tuned";
 
             if (!text) {
-                alert('Please enter a review.');
+                alert('Please enter a line from the script.');
                 return;
             }
 
@@ -204,12 +223,12 @@
             addMessage(text, 'user-message');
 
             try {
-                const response = await fetch('http://127.0.0.1:5222/chat', {  // Update URL if needed
+                const response = await fetch('http://127.0.0.1:5222/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ prompt: text, fine_tuned: true }), // Updated key names
+                    body: JSON.stringify({ prompt: text, fine_tuned: useFineTuned }),
                     signal: signal
                 });
 
@@ -227,6 +246,22 @@
                 }
             } finally {
                 resetToSend();
+            }
+        }
+
+        async function resetContext() {
+            const useFineTuned = document.querySelector('input[name="model"]:checked').value === "fine_tuned";
+            try {
+                await fetch('http://127.0.0.1:5222/reset_context', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ fine_tuned: useFineTuned })
+                });
+                alert('Context has been reset.');
+            } catch (error) {
+                alert(`Failed to reset context: ${error.message}`);
             }
         }
 
@@ -268,14 +303,21 @@
             Start typing in your script line, and generative AI will predict the next part of the conversation.
         </p>
 
-        <div class="history">
-        </div>
-
+        <div class="history"></div>
         <div id="processing" class="processing"></div>
 
         <div class="input-section">
             <input type="text" id="inputText" placeholder="Enter part of a movie line ...">
             <button class="arrow-button" onclick="sendText()">➤</button>
+        </div>
+
+        <div class="model-selection">
+            <label><input type="radio" name="model" value="fine_tuned" checked> Fine-Tuned Model</label>
+            <label><input type="radio" name="model" value="standard"> Standard Model</label>
+        </div>
+
+        <div class="reset-section">
+            <button class="reset-button" onclick="resetContext()">Reset Context</button>
         </div>
     </div>
 
