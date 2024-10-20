@@ -26,11 +26,11 @@ def get_standard():
 
 	return model, tokenizer
 
-def model_infer(prompt, model, tokenizer, MAX_TOKENS=50):
+def model_infer(prompt, model, tokenizer, MAX_TOKENS=128):
 	# Tokenize the input and create attention mask
 	inputs = tokenizer(prompt, padding="max_length", 
 					   truncation=True, 
-					   max_length=MAX_TOKENS, 
+					   max_length=1000, 
 					   return_tensors="tf")
 	
 	input_ids = inputs["input_ids"]
@@ -44,9 +44,9 @@ def model_infer(prompt, model, tokenizer, MAX_TOKENS=50):
 		num_return_sequences=1,  # Generate number of sequences
 		no_repeat_ngram_size=1,  # No repetition for natural flow
 		do_sample=True,  # Enable sampling
-		top_k=50,  # Allows selection only from top_k,
-		top_p=0.92,  # Tightens the probability distribution for less randomness
-		temperature=0.7,  # Lower temperature for more deterministic responses
+		top_k=40,  # Allows selection only from top_k,
+		top_p=0.85,  # Tightens the probability distribution for less randomness
+		temperature=0.5,  # Lower temperature for more deterministic responses
 		pad_token_id=tokenizer.eos_token_id  # Set pad_token to eos_token explicitly
 	)
 	
@@ -58,28 +58,43 @@ def model_infer(prompt, model, tokenizer, MAX_TOKENS=50):
 
 
 class ChatBot():
-	def __init__(self, fine_tuned=False, max_tokens=50):
+	def __init__(self, fine_tuned=False, max_tokens=20):
 		if fine_tuned:
 			self.model, self.tokenizer = get_fine_tuned()
 		else:
 			self.model, self.tokenizer = get_standard()
 
-		self.base_prompt = "Continue the following prompt as a female character from a romance movie. "
-		self.context = [self.base_prompt]
+		# The base prompt is a few shot prompt
+		self.base_context = [
+			"System: You are a romantic male character responding to a female love interest. You should respond with affection, warmth, and passion.",
+			"Female: Why won't you just leave?",
+			"Male: I've never felt anything like this before. I know you feel the same way.",
+			"Female: How could you?",
+			"Male: I thought I could live without you. I was wrong. I need you more than ever.",
+			"Female: Are you mad at me?",
+			"Male: I'm only frustrated that you can't see how much I love you."
+		]
+
+		self.context = self.base_context.copy()
 		self.max_tokens = max_tokens
 
 	def reset_context(self):
-		self.context = [self.base_prompt]
+		self.context = self.base_context.copy()
 
 	def chat(self, prompt):
-		self.context.append(prompt)
+		engineered_prompt = "Female: " + prompt + "\nMale: "
+		self.context.append(engineered_prompt)
 
 		# Join the prompts into a single string
-		super_prompt = " ".join(self.context)
-		new_context = model_infer(self.context, self.model, self.tokenizer, MAX_TOKENS=self.max_tokens)
+		super_prompt = "\n".join(self.context)
+		print("Super Prompt: ", super_prompt)
+		model_output = model_infer(super_prompt, self.model, self.tokenizer, MAX_TOKENS=self.max_tokens)
 
 		# The model's prior response should be placed in the context
+		new_context = engineered_prompt + model_output
 		self.context.append(new_context)
 
-		return new_context
+		print("New Context: ", new_context)
+
+		return model_output
 
