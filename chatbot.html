@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Villain</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ADD8E6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Moving frame background */
+        .moving-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('filmstrip.jpg');  /* Reference the image in the same folder */
+            background-size: cover;
+            animation: moveFrame 15s linear infinite;  /* Infinite animation */
+            z-index: -1;  /* Behind the content */
+        }
+
+        @keyframes moveFrame {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: -1000px 0;  /* Adjust this for animation speed */
+            }
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            width: 50%;
+            margin: 0 auto;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            max-height: calc(100vh - 150px); /* Leave space for the footer */
+            position: absolute;  /* Absolute positioning */
+            bottom: 260px;  /* Position above the footer */
+        }
+
+        /* Add title */
+        h1 {
+            margin: 10px 0;
+            color: #333;
+        }
+
+        /* Description text */
+        .description {
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        /* Chat history container */
+        .history {
+            background: rgba(255, 255, 255, 0.6);
+            padding: 10px;
+            border-radius: 5px;
+            flex-grow: 1; /* Allow to expand */
+            overflow-y: auto;   /* Allow scrolling when content exceeds height */
+            margin-bottom: 10px; /* Space between history and input */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Chat bubbles */
+        .message {
+            padding: 10px 15px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+            display: inline-block;
+            max-width: 75%;
+            word-wrap: break-word;
+        }
+
+        /* User message bubbles (right side) */
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+        }
+
+        /* Bot response bubbles (left side) */
+        .bot-message {
+            background-color: #f1f1f1;
+            color: black;
+            align-self: flex-start;
+        }
+
+        .processing {
+            margin-top: 10px;
+            font-size: 1.2em;
+            color: #007bff;
+            text-align: center;
+        }
+
+        /* Input section: input field and button side by side */
+        .input-section {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Input field */
+        input {
+            padding: 10px;
+            width: 75%;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        /* Submit button next to input */
+        .arrow-button {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 1.5em;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .arrow-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            background-color: #f1f1f1;
+            padding: 10px;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            font-size: 0.9em;
+        }
+
+        .footer a {
+            text-decoration: none;
+            color: #007bff;
+        }
+
+        .footer a:hover {
+            color: #0056b3;
+        }
+
+        .footer .github-icon {
+            width: 24px;
+            vertical-align: middle;
+        }
+
+    </style>
+    <script>
+        let abortController = null;
+
+        async function sendText() {
+            const inputField = document.getElementById('inputText');
+            const sendButton = document.querySelector('.arrow-button');
+            const text = inputField.value;
+            const processingDiv = document.getElementById('processing');
+
+            if (!text) {
+                alert('Please enter a review.');
+                return;
+            }
+
+            if (abortController) {
+                abortController.abort();
+                resetToSend();
+                return;
+            }
+
+            abortController = new AbortController();
+            const { signal } = abortController;
+
+            sendButton.innerHTML = '■';
+            processingDiv.innerHTML = 'Processing...';
+
+            addMessage(text, 'user-message');
+
+            try {
+                const response = await fetch('http://127.0.0.1:5222/chat', {  // Update URL if needed
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ prompt: text, fine_tuned: true }), // Updated key names
+                    signal: signal
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    addMessage(data.response, 'bot-message');
+                } else {
+                    addMessage(`Error: ${data.error}`, 'bot-message');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    addMessage('Request aborted by user.', 'bot-message');
+                } else {
+                    addMessage(`Error: ${error.message}`, 'bot-message');
+                }
+            } finally {
+                resetToSend();
+            }
+        }
+
+        function resetToSend() {
+            const sendButton = document.querySelector('.arrow-button');
+            const inputField = document.getElementById('inputText');
+            const processingDiv = document.getElementById('processing');
+            sendButton.innerHTML = '➤';
+            abortController = null;
+            inputField.value = '';
+            processingDiv.innerHTML = '';
+        }
+
+        function addMessage(message, type) {
+            const historyDiv = document.querySelector('.history');
+            const messageContainer = document.createElement('div');
+            messageContainer.classList.add('message', type);
+            messageContainer.innerHTML = message;
+            historyDiv.appendChild(messageContainer);
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const inputField = document.getElementById('inputText');
+            inputField.addEventListener('keyup', function (event) {
+                if (event.key === 'Enter') {
+                    sendText();
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="moving-frame"></div> 
+    <div class="container">
+        <h1>VILL.AI.N Generative Chatbot</h1>
+        <p class="description">
+            In this Villain Chatbot we are working with a subset of male characters in a romantic movie.
+            Start typing in your script line, and generative AI will predict the next part of the conversation.
+        </p>
+
+        <div class="history">
+        </div>
+
+        <div id="processing" class="processing"></div>
+
+        <div class="input-section">
+            <input type="text" id="inputText" placeholder="Enter part of a movie line ...">
+            <button class="arrow-button" onclick="sendText()">➤</button>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 Generative AI Chatbot. All rights reserved.</p>
+        <p><img src="usd-logo.png" alt="USD" class="github-icon"> University of San Diego</p>
+        <p>AAI-520 Natural Language Processing and GenAI</p>
+        <p>Created by: Fuad Al Asouli, Phillip Felizarta, Gabriel Emanuel Colón</p>
+        <a href="https://github.com/PhilipFelizarta/Generative_ChatBot_Final" target="_blank">
+            <img src="github-logo.svg" alt="GitHub" class="github-icon">
+            View on GitHub
+        </a>
+    </div>
+</body>
+</html>
