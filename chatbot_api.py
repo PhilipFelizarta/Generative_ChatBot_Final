@@ -92,7 +92,7 @@ class ChatBot():
 
 		# The model's prior response should be placed in the context
 		new_context = engineered_prompt + model_output
-		self.context.append(new_context)
+		self.context[-1] = new_context
 
 		print("New Context: ", new_context)
 
